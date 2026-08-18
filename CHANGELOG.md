@@ -4,6 +4,31 @@ All notable changes to zenpower5 will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Strix Halo (1Ah/70h): bogus per-CCD temperatures.** Tccd1-8 alternated
+  between 0.0C and a constant 150.9C unrelated to Tdie (observed 150.9C while
+  Tdie read 58C). The Zen5 desktop CCD temperature base (0x59b08, ccd_offset
+  0x308) is correct for Granite Ridge but not for this APU; the registers there
+  use a different encoding, so the k10temp decode (`BIT(11)` valid flag plus
+  `(raw & 0x7ff) * 125 - 49000`) yields nonsense. `num_ccds` is now 0 for
+  1Ah/70h, matching the other APU entries in the model table. Tctl/Tdie and
+  RAPL package power are unaffected. In-tree k10temp shows the same artefact on
+  this part.
+
+- **Probe no longer trusts the CCD valid bit alone.** A CCD temperature sensor
+  is exposed only if the decoded value is physically plausible (-20C..125C), so
+  a wrong-for-the-model base address cannot surface garbage on other parts.
+
+- **Unsigned underflow in the temperature helpers.** `zenpower_temp_get_ctl()`
+  and `zenpower_temp_get_ccd()` returned `unsigned int` while subtracting the
+  49000 mC offset. Any reading below that offset wrapped to ~4.29e9, which
+  hwmon reported as a multi-million-degree temperature. Both now return `long`,
+  and Tdie is clamped at 0 after the tctl offset subtraction, as in-tree
+  k10temp does.
+
 ## [0.5.0] - 2025-11-30
 
 ### Added
