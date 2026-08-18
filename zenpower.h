@@ -64,8 +64,18 @@ u32 zenpower_svi2_get_soc_current(u32 plane, bool zen2);
 int zenpower_rapl_init(struct zenpower_data *data, struct device *dev);
 int zenpower_rapl_read_power(struct zenpower_data *data, int channel, long *val);
 
+/* Plausible CCD temperature range, in millidegrees C.
+ * A decoded value outside this window means the SMN register we read is not
+ * actually a CCD temperature register on this part (wrong base address for
+ * the model), so the sensor must not be exposed. Silicon junction sensors
+ * cannot legitimately report below -20C or above 125C.
+ */
+#define ZEN_CCD_TEMP_MIN_MC  (-20000)
+#define ZEN_CCD_TEMP_MAX_MC  (125000)
+
 /* Temperature backend functions */
-unsigned int zenpower_temp_get_ccd(struct zenpower_data *data, u32 ccd_addr);
-unsigned int zenpower_temp_get_ctl(struct zenpower_data *data);
+long zenpower_temp_get_ccd(struct zenpower_data *data, u32 ccd_addr);
+long zenpower_temp_get_ctl(struct zenpower_data *data);
+bool zenpower_temp_ccd_present(struct zenpower_data *data, u32 ccd_addr);
 
 #endif /* ZENPOWER_H */

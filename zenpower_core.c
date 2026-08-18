@@ -276,12 +276,24 @@ static const struct zenpower_model_config model_configs[] = {
 	  .flags = ZEN_CFG_ZEN2_CALC | ZEN_CFG_RAPL | ZEN_CFG_IS_ZEN5 | ZEN_CFG_NO_RAPL_CORE,
 	  .name = "Zen5 Granite Ridge (1Ah/44h)" },
 
-	/* Family 1Ah - Zen5 */
+	/* Family 1Ah - Zen5 Strix Halo (APU)
+	 *
+	 * num_ccds = 0: Strix Halo does not expose per-CCD temperatures at the
+	 * Zen5 desktop base (0x59b08, i.e. ccd_offset 0x308). Those registers
+	 * read back as non-temperature data on this part: with the valid bit
+	 * set they decode to a constant ~150.9C (raw 0x63f) that is unrelated to
+	 * Tdie -- observed at 150.9C while Tdie was 58C, and flipping between
+	 * 0.0C and 150.9C as load changed. Same behaviour as in-tree k10temp,
+	 * which probes the same address for family 1Ah model 0x70.
+	 *
+	 * Until the correct base for this APU is known, follow the same
+	 * convention as the other APU entries above and expose Tctl/Tdie only.
+	 */
 	{ .family = 0x1a, .model = 0x70,
 	  .svi_core_addr = F1AH_M70H_SVI_TEL_PLANE0,
 	  .svi_soc_addr = F1AH_M70H_SVI_TEL_PLANE1,
 	  .ccd_temp_base = F1AH_M70H_CCD_TEMP_BASE,
-	  .num_ccds = 8,
+	  .num_ccds = 0,
 	  .flags = ZEN_CFG_ZEN2_CALC | ZEN_CFG_RAPL | ZEN_CFG_IS_ZEN5 | ZEN_CFG_NO_RAPL_CORE,
 	  .name = "Zen5 Strix Halo (1Ah/70h)" },
 
@@ -390,6 +402,8 @@ static int zenpower_read(struct device *dev, enum hwmon_sensor_types type,
 					switch (channel) {
 						case 0: // Tdie
 							*val = zenpower_temp_get_ctl(data) - data->temp_offset;
+							if (*val < 0)  // tctl offset can overshoot when idle
+								*val = 0;
 							break;
 						case 1: // Tctl
 							*val = zenpower_temp_get_ctl(data);
@@ -847,10 +861,18 @@ static int zenpower_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	for (i = 0; i < ccd_check; i++) {
 		u32 ccd_addr = data->zen5 ? F1AH_M70H_CCD_TEMP(i) : F17H_M70H_CCD_TEMP(i);
-		data->read_amdsmn_addr(pdev, data->node_id, ccd_addr, &val);
-		/* Check valid bit (BIT(11)) per k10temp driver */
-		if (val & BIT(11)) {
+
+		/* Valid bit (BIT(11)) per k10temp driver, plus a plausibility check:
+		 * a wrong-for-this-model base address lands on an unrelated SMN
+		 * register that can also have BIT(11) set, and then decodes to a
+		 * nonsense temperature. Do not expose those.
+		 */
+		if (zenpower_temp_ccd_present(data, ccd_addr)) {
 			data->ccd_visible[i] = true;
+		} else {
+			data->read_amdsmn_addr(pdev, data->node_id, ccd_addr, &val);
+			dev_dbg(dev, "Tccd%d: no plausible temperature at 0x%08x (raw 0x%08x), hiding\n",
+				i + 1, ccd_addr, val);
 		}
 	}
 
