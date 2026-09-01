@@ -1,0 +1,15 @@
+-nostdinc
+-I/usr/lib/modules/7.2.2-arch1-1/build/include
+-I/usr/lib/modules/7.2.2-arch1-1/build/include/uapi
+-I/usr/lib/modules/7.2.2-arch1-1/build/include/generated
+-I/usr/lib/modules/7.2.2-arch1-1/build/include/generated/uapi
+-I/usr/lib/modules/7.2.2-arch1-1/build/arch/x86/include
+-I/usr/lib/modules/7.2.2-arch1-1/build/arch/x86/include/generated
+-I/usr/lib/modules/7.2.2-arch1-1/build/arch/x86/include/generated/uapi
+-I/usr/lib/modules/7.2.2-arch1-1/build/arch/x86/include/uapi
+-include
+/usr/lib/modules/7.2.2-arch1-1/build/include/linux/kconfig.h
+-D__KERNEL__
+-DMODULE
+-fno-builtin
+-m64

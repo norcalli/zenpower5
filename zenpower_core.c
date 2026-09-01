@@ -39,6 +39,7 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <asm/msr.h>
+#include <asm/cpuid/api.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
 #include <asm/amd/nb.h>
